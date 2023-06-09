@@ -18,10 +18,11 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         tts_synthesis_btn.setOnClickListener {
-            val data =
-                mapOf<String, Any?>("text" to "你好", "session_id" to UUID.randomUUID().toString(), "voice_type" to 0)
-            val secretId = "d3578c4d2b324e68afcc3746bd39ce47"
-            val secretKey = "9a0efdd06c06491d81e2953876122d63"
+            val data = mapOf<String, Any?>("text" to tts_input.text.toString(),
+                "session_id" to UUID.randomUUID().toString(),
+                "voice_type" to 0)
+            val secretId = ""
+            val secretKey = ""
             TTSSynthesisInstance.ttsSynthesis(data, secretId, secretKey, object : TTSSynthesisCallBack {
                 override fun callBack(code: Int, msg: String, data: TTSResultData?) {
                     Log.e(tag, "接收到合成结果:${data?.audio}")
