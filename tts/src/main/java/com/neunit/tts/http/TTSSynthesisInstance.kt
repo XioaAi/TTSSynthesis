@@ -2,10 +2,7 @@ package com.neunit.tts.http
 
 import android.util.Log
 import com.google.gson.Gson
-import com.neunit.tts.model.LongTTSResultData
-import com.neunit.tts.model.LongTTSResultModel
-import com.neunit.tts.model.TTSResultData
-import com.neunit.tts.model.TTSResultModel
+import com.neunit.tts.model.*
 import com.neunit.tts.sign.SignUtils
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -21,6 +18,14 @@ interface LongTTSSynthesisCallBack {
     fun callBack(code: Int, msg: String, data: LongTTSResultData?)
 }
 
+interface LongTTSSynthesisStatusCallBack {
+    fun callBack(code: Int, msg: String, data: LongTTSResultStatusData?)
+}
+
+enum class TTSVoiceType {
+    Female, Male
+}
+
 /**
  * @Description TTS合成请求
  * @Author ZhaoXiudong
@@ -30,27 +35,43 @@ class TTSSynthesisInstance {
     companion object {
         private val tag = TTSSynthesisInstance::class.java.name
 
+        private var secretId: String? = null
+        private var secretKey: String? = null
+
+        /**
+         * 初始化Secret信息
+         */
+        @JvmStatic
+        fun initTTSSecret(secretId: String, secretKey: String) {
+            this.secretId = secretId
+            this.secretKey = secretKey
+        }
+
+
         /**
          * 基础语音合成
          */
-        fun ttsSynthesis(
-            params: Map<String, Any?>,
-            secretId: String,
-            secretKey: String,
-            ttsSynthesisCallBack: TTSSynthesisCallBack,
-        ) {
-            val requestParams = toJSONObject(params).toString()
+        @JvmStatic
+        fun ttsSynthesis(text: String, callBack: TTSSynthesisCallBack, voiceType: TTSVoiceType = TTSVoiceType.Male) {
+            if (secretId == null || secretKey == null) {
+                Log.e(tag, "请先初始化secret信息")
+                return
+            }
+            val requestParams = toJSONObject(mapOf("text" to text,
+                "session_id" to UUID.randomUUID().toString(),
+                "voice_type" to if (voiceType == TTSVoiceType.Male) 0 else 1)).toString()
             val url = "https://winner-api.neunit.com:18053/cloud/tts/v1/text_to_voice"
             val client = OkHttpClient.Builder().build()
             val mediaType = "application/json; charset=utf-8".toMediaTypeOrNull()
             val body: RequestBody = requestParams.toRequestBody(mediaType)
             val request: Request =
-                Request.Builder().url(url).headers(buildHeader(params, secretId, secretKey)).post(body).build()
+                Request.Builder().url(url).headers(buildHeader(requestParams, secretId!!, secretKey!!)).post(body)
+                    .build()
 
             client.newCall(request).enqueue(object : Callback {
                 override fun onFailure(call: Call, e: java.io.IOException) {
                     Log.d(tag, "请求失败:${e.printStackTrace()}")
-                    ttsSynthesisCallBack.callBack(-1, e.message ?: "", null)
+                    callBack.callBack(-1, e.message ?: "", null)
                 }
 
                 override fun onResponse(call: Call, response: Response) {
@@ -58,13 +79,10 @@ class TTSSynthesisInstance {
                     Log.d(tag, "请求成功:$result")
                     if (result != null) {
                         val ttsResultModel = Gson().fromJson(result, TTSResultModel::class.java)
-                        if (ttsResultModel.code == 0) {
-                            Log.d(tag, "请求成功:${ttsResultModel.data?.session_id}")
-                            ttsSynthesisCallBack.callBack(ttsResultModel.code, ttsResultModel.msg, ttsResultModel.data)
-                        } else {
-                            Log.d(tag, "请求失败:${ttsResultModel.msg}")
-                            ttsSynthesisCallBack.callBack(ttsResultModel.code, ttsResultModel.msg, null)
-                        }
+                        callBack.callBack(ttsResultModel.code, ttsResultModel.msg, ttsResultModel.data)
+                    } else {
+                        Log.d(tag, "请求失败:接口返回信息为null")
+                        callBack.callBack(-1, "", null)
                     }
 
                 }
@@ -74,25 +92,32 @@ class TTSSynthesisInstance {
         /**
          * 长语音合成
          */
+        @JvmStatic
         fun longTTSSynthesis(
-            params: Map<String, Any?>,
-            secretId: String,
-            secretKey: String,
-            longTTSSynthesisCallBack: LongTTSSynthesisCallBack,
+            text: String,
+            callBack: LongTTSSynthesisCallBack,
+            voiceType: TTSVoiceType = TTSVoiceType.Male,
+            callBackUrl: String? = null,
         ) {
-
-            val requestParams = toJSONObject(params).toString()
+            if (secretId == null || secretKey == null) {
+                Log.e(tag, "请先初始化secret信息")
+                return
+            }
+            val requestParams = toJSONObject(mapOf("text" to text,
+                "callback_url" to (callBackUrl ?: ""),
+                "voice_type" to if (voiceType == TTSVoiceType.Male) 0 else 1)).toString()
             val url = "https://winner-api.neunit.com:18053/cloud/tts/v1/create_tts_task"
             val client = OkHttpClient.Builder().build()
             val mediaType = "application/json; charset=utf-8".toMediaTypeOrNull()
             val body: RequestBody = requestParams.toRequestBody(mediaType)
             val request: Request =
-                Request.Builder().url(url).headers(buildHeader(params, secretId, secretKey)).post(body).build()
+                Request.Builder().url(url).headers(buildHeader(requestParams, secretId!!, secretKey!!)).post(body)
+                    .build()
 
             client.newCall(request).enqueue(object : Callback {
                 override fun onFailure(call: Call, e: java.io.IOException) {
                     Log.d(tag, "请求失败:${e.printStackTrace()}")
-                    longTTSSynthesisCallBack.callBack(-1, e.message ?: "", null)
+                    callBack.callBack(-1, e.message ?: "", null)
                 }
 
                 override fun onResponse(call: Call, response: Response) {
@@ -100,15 +125,46 @@ class TTSSynthesisInstance {
                     Log.d(tag, "请求成功:$result")
                     if (result != null) {
                         val longTTSResultData = Gson().fromJson(result, LongTTSResultModel::class.java)
-                        if (longTTSResultData.code == 0) {
-                            Log.d(tag, "请求成功:${longTTSResultData.data?.task_id}")
-                            longTTSSynthesisCallBack.callBack(longTTSResultData.code,
-                                longTTSResultData.msg,
-                                longTTSResultData.data)
-                        } else {
-                            Log.d(tag, "请求失败:${longTTSResultData.msg}")
-                            longTTSSynthesisCallBack.callBack(longTTSResultData.code, longTTSResultData.msg, null)
-                        }
+                        callBack.callBack(longTTSResultData.code, longTTSResultData.msg, longTTSResultData.data)
+                    } else {
+                        Log.d(tag, "请求失败:接口返回信息为null")
+                        callBack.callBack(-1, "", null)
+                    }
+                }
+            })
+        }
+
+        /**
+         * 长语音合成结果查询
+         */
+        @JvmStatic
+        fun longTTSSynthesisStatus(taskId: String, callBack: LongTTSSynthesisStatusCallBack) {
+            if (secretId == null || secretKey == null) {
+                Log.e(tag, "请先初始化secret信息")
+                return
+            }
+            val url = "https://winner-api.neunit.com:18053/cloud/tts/v1/describe_tts_task_status?task_id=$taskId"
+            Log.d(tag, "请求地址:$url")
+            val requestParams = toJSONObject(mapOf("task_id" to taskId)).toString()
+            val client = OkHttpClient.Builder().build()
+            val request: Request =
+                Request.Builder().url(url).headers(buildHeader(requestParams, secretId!!, secretKey!!)).get().build()
+
+            client.newCall(request).enqueue(object : Callback {
+                override fun onFailure(call: Call, e: java.io.IOException) {
+                    Log.d(tag, "请求失败:${e.printStackTrace()}")
+                    callBack.callBack(-1, e.message ?: "", null)
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    val result = response.body?.string()
+                    Log.d(tag, "请求成功:$result")
+                    if (result != null) {
+                        val model = Gson().fromJson(result, LongTTSResultStatusModel::class.java)
+                        callBack.callBack(model.code, model.msg, model.data)
+                    } else {
+                        Log.d(tag, "请求失败:接口返回信息为null")
+                        callBack.callBack(-1, "", null)
                     }
 
                 }
@@ -118,10 +174,10 @@ class TTSSynthesisInstance {
         /**
          * 添加请求头参数
          */
-        private fun buildHeader(requestParams: Map<String, Any?>, secretId: String, secretKey: String): Headers {
+        private fun buildHeader(paramsJsonStr: String, secretId: String, secretKey: String): Headers {
             val nonce = UUID.randomUUID().toString()
-            val timestamp = Date().time.toString()
-            val waitSignStr = "${requestParams}_${nonce}_${timestamp}_${secretId}"
+            val timestamp = (Date().time / 1000).toString()
+            val waitSignStr = "${paramsJsonStr}_${nonce}_${timestamp}_${secretId}"
             Log.d(tag, "待签名字符串:$waitSignStr")
             val sign = SignUtils.strToHMacSHA256(SignUtils.strToSHA256(waitSignStr), secretKey)
             Log.d(tag, "签名成功:$sign")

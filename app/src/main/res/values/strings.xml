@@ -1,6 +1,5 @@
 <resources>
-    <string name="app_name">Speech demo</string>
-    <string name="speech_translation">语音转译</string>
-    <string name="speech_commands">语音命令识别</string>
-    <string name="tts_synthesis">TTS 合成</string>
+    <string name="app_name">TTS demo</string>
+    <string name="tts_synthesis">基础语音合成</string>
+    <string name="long_tts_synthesis">长语音合成</string>
 </resources>

@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace 'com.neunit.speech'
+    namespace 'com.neunit.tts'
     compileSdk 32
 
     defaultConfig {
-        applicationId "com.neunit.speech"
+        applicationId "com.neunit.tts"
         minSdk 23
         targetSdk 32
         versionCode 1
