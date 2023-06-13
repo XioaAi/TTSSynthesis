@@ -15,7 +15,7 @@ allprojects {
 
 ```
 dependencies {
-    implementation 'com.github.XioaAi:TTSSynthesis:1.0.0'
+    implementation 'com.github.XioaAi:TTSSynthesis:1.0.1'
 }
 ```
 
@@ -59,6 +59,9 @@ TTSSynthesisInstance.longTTSSynthesisStatus(taskId, object : LongTTSSynthesisSta
 
 ```
 
-
+### 4. 若开启了代码混淆,需增加如下
+```
+-keep class com.neunit.tts.model.** { *; }
+```
 
 
