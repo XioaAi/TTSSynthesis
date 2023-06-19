@@ -60,6 +60,7 @@ TTSSynthesisInstance.longTTSSynthesisStatus(taskId, object : LongTTSSynthesisSta
 
 ### 4. 若开启了代码混淆,需增加如下
 ```kotlin
+-dontwarn com.neunit.tts.**
 -keep class com.neunit.tts.model.** { *; }
 ```
 
